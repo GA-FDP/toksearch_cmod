@@ -1,0 +1,37 @@
+schema_version: 1
+name: cmod
+description: Alcator C-Mod (MIT PSFC), via Pelican
+
+pelican_root: pelican://osg-htc.org:443/fdp-cmod
+
+# NOTE: no `origin_server` on purpose.
+#
+# The d3d origin exposes XRootD on :8443, but the cmod origin
+# (fdp-cmod-origin.nationalresearchplatform.org) listens only on HTTP :8083 --
+# 8443 and 1094 are closed. Data access is unaffected, because the
+# xrdcl-pelican plugin reads over HTTP through the OSDF caches; but there is
+# no `root://` endpoint for `fdp ls` to talk to. Leaving origin_server unset
+# makes fdp's "origin" capability predicate correctly skip this device
+# instead of hanging on a dead port. Set it if/when the origin opens 8443.
+
+locators:
+  # Tree files live at cmod_archive/YY/MM/DD/<tree>/<tree>_<shot>.tree, where
+  # a C-Mod shot is [1]YYMMDDNNN (10 digits post-2000, 9 in the 1990s).
+  #
+  # MaskReplace() in MDSplus treeshr/TreeOpen.c pads the shot to 12 chars
+  # ("%012u") and maps ~a -> index 11 (ones) through ~j -> index 2, with ~t
+  # the tree name. So for 1160930043 -> "001160930043", the date fields are
+  # indices [3][4], [5][6], [7][8]:
+  #     YY = ~i~h   MM = ~g~f   DD = ~e~d
+  # Verified against both 1160930043 (2016-09-30) and 990225022 (1999-02-25).
+  - kind: mds_tree
+    name: main
+    transport: pelican
+    search_path:
+      - pelican://osg-htc.org:443/fdp-cmod/cmod_archive/~i~h/~g~f/~e~d/~t
+    auth: { kind: bearer_token, env: BEARER_TOKEN }
+
+# Deliberately no extra_env. d3d sets SYS_D3_DELIM=';' for the PTData/libd3
+# path parser; cmod has no ptdata locator, and ';' is already the default
+# separator _tokamak_env() joins search_path entries with. Omitting it also
+# keeps cmod from disagreeing with another device over a shared key.

@@ -1,0 +1,76 @@
+# Copyright 2024 General Atomics
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+context:
+  version: ${{ env.get("PKG_VERSION") }}
+
+package:
+  name: toksearch_cmod
+  version: ${{ version }}
+
+source:
+  path: ..
+
+build:
+  # Pure data: a catalog YAML plus two small __init__ modules, no compiled
+  # content and nothing Python-version-specific. noarch means one build
+  # instead of a 3.11/3.12 matrix, and -- because noarch packages carry no
+  # python run-export -- it also sidesteps the synthesised
+  # `python *_debug_cpython` run-export that forces the `ignore_run_exports`
+  # workaround in the per-version recipes (see toksearch_mast/recipe).
+  noarch: python
+  script:
+    - ${{ PYTHON }} -m pip install . --no-deps --no-build-isolation --ignore-installed -vv
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+    - versioneer
+  run:
+    - python >=3.11
+    # LOAD-BEARING FLOOR. cmod.yaml deliberately omits `origin_server`
+    # because the cmod origin exposes no XRootD port. That omission is only
+    # safe on a version of fdp with capability-scoped resolution, where the
+    # `origin` predicate (`bool(schema.origin_server)`) makes `fdp ls` skip
+    # this device rather than try a dead endpoint. That landed in fdp 0.5.0
+    # alongside multi-device env composition. On anything older, the
+    # omission is not handled and the guard test below fails.
+    - fdp >=0.5.0
+    - fdp-schema >=0.2.1
+    # NOT a dependency: toksearch. This package imports nothing from it --
+    # it ships a YAML and an entry point. Reading C-Mod data does need
+    # `toksearch.MdsSignal`, but `fdp` already depends on toksearch, so it
+    # arrives either way and pinning a second floor here would just be
+    # another thing to keep in sync.
+
+tests:
+  - python:
+      imports:
+        - toksearch_cmod
+        - toksearch_cmod.data
+  - script:
+      content:
+        - cd tests && pytest -q
+    files:
+      source:
+        - tests/
+    requirements:
+      run:
+        - pytest
+        - fdp >=0.5.0
+        - fdp-schema >=0.2.1
+
+about:
+  homepage: https://github.com/GA-FDP/toksearch_cmod
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: "TokSearch C-Mod: Alcator C-Mod device catalog for FDP"
+  repository: https://github.com/GA-FDP/toksearch_cmod
+
+extra:
+  recipe-maintainers:
+    - sammuli

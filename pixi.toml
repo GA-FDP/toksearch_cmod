@@ -1,0 +1,21 @@
+[workspace]
+name = "toksearch_cmod"
+channels = ["ga-fdp", "conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = ">=3.11,<3.13"
+# fdp 0.5.0 is the floor that matters -- see recipe/recipe.yaml for why.
+fdp = ">=0.5.0"
+fdp-schema = ">=0.2.1"
+toksearch = "*"
+pytest = "*"
+setuptools = "*"
+pip = "*"
+versioneer = "*"
+
+[pypi-dependencies]
+toksearch_cmod = { path = ".", editable = true }
+
+[tasks]
+test = "pytest -v"

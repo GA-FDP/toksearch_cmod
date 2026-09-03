@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61", "versioneer[toml]"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toksearch_cmod"
+dynamic = ["version"]
+description = "TokSearch C-Mod: Alcator C-Mod device catalog for FDP"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+# Runtime deps come from recipe/recipe.yaml (ga-fdp conda channel); keep
+# this empty so pip/pixi's pypi resolver doesn't fetch fdp from PyPI.
+dependencies = []
+
+[tool.setuptools]
+packages = ["toksearch_cmod", "toksearch_cmod.data"]
+zip-safe = false
+
+[tool.setuptools.package-data]
+"toksearch_cmod.data" = ["*.yaml"]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "toksearch_cmod/_version.py"
+versionfile_build = "toksearch_cmod/_version.py"
+tag_prefix = "release-"
+parentdir_prefix = "toksearch_cmod-"
+
+[project.entry-points."fdp_schema.catalogs"]
+cmod = "toksearch_cmod.data:cmod_yaml"
