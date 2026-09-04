@@ -13,9 +13,23 @@ pytest = "*"
 setuptools = "*"
 pip = "*"
 versioneer = "*"
+# Toolchain for the native half (src/): MIT PSFC's FORTRAN libraries.
+# Pinned to match the conda recipe so a local `pixi run build-libs` produces
+# the same artifact CI does.
+gfortran = "10.*"
+make = "*"
+# libHYBEXE.so needs mdslib.inc and libMdsLib.so.
+mdsplus-xrdcl = ">=1.0.1"
 
 [pypi-dependencies]
 toksearch_cmod = { path = ".", editable = true }
 
 [tasks]
-test = "pytest -v"
+# Build and install the custom TDI functions and FORTRAN libraries into the
+# pixi env, mirroring what recipe/build.sh does inside a conda build.
+build-libs = { cmd = "make -C src install PREFIX=$CONDA_PREFIX MDSPLUS_DIR=$CONDA_PREFIX" }
+# Network-free suite. Run build-libs first: test_native.py checks the
+# installed artifacts.
+test = { cmd = "pytest -v -m 'not integration'", depends-on = ["build-libs"] }
+# Live-origin suite; needs BEARER_TOKEN for the fdp-cmod namespace.
+test-integration = { cmd = "fdp -D cmod run python -m pytest tests/ -v -m integration", depends-on = ["build-libs"] }

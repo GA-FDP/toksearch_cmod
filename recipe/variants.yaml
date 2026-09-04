@@ -1,0 +1,9 @@
+python:
+  # "3.11" and "3.12" (without the .*) mean ==3.11.0 and ==3.12.0 exactly, not
+  # "any 3.11.x" -- so packages get built against Python 3.11.0 (2022) and
+  # 3.12.0 (2023). That works by luck until conda-forge's build set grows
+  # debug-interpreter variants (*_debug_cpython); once the build environment
+  # resolves one, the built package pins a python the test environment cannot
+  # find. Same trap as toksearch#63 / ptdata#50.
+  - "3.11.*"
+  - "3.12.*"

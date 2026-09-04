@@ -4,3 +4,7 @@ __pycache__/
 .pixi/
 build/
 dist/
+
+# Upstream delivery from MIT PSFC, kept locally for reference only. The parts
+# we ship are vendored under src/ with provenance in src/README.md.
+from_mark/

@@ -14,24 +14,53 @@ source:
   path: ..
 
 build:
-  # Pure data: a catalog YAML plus two small __init__ modules, no compiled
-  # content and nothing Python-version-specific. noarch means one build
-  # instead of a 3.11/3.12 matrix, and -- because noarch packages carry no
-  # python run-export -- it also sidesteps the synthesised
-  # `python *_debug_cpython` run-export that forces the `ignore_run_exports`
-  # workaround in the per-version recipes (see toksearch_mast/recipe).
-  noarch: python
-  script:
-    - ${{ PYTHON }} -m pip install . --no-deps --no-build-isolation --ignore-installed -vv
+  # NOT noarch, despite the Python half being pure data.
+  #
+  # This package ships MIT PSFC's custom C-Mod support: five TDI functions
+  # (portable text) and two FORTRAN libraries, libHYBEXE.so and libIMSL.so.
+  # Without them a large set of C-Mod nodes cannot be evaluated at all --
+  # notably the plasma current, \IP, which needs HYBEXE. Compiled content
+  # means linux-64, and a python variant matrix comes with it.
+  #
+  # linux-64-only costs nothing real here: every compiled member of the FDP
+  # stack (mdsplus-xrdcl, xrdcl-pelican-fdp, libfdpio2) is linux-64 already,
+  # and ga-fdp publishes no osx or win subdir at all. A catalog entry that
+  # resolved on macOS would point at a transport that cannot exist there.
+  script: build.sh
 
 requirements:
+  build:
+    # Pinned to match ptdata's toolchain. sysroot 2.17 keeps the artifact from
+    # inheriting the build machine's glibc -- the defect that left
+    # ga-dfl-labeler constrained to __glibc <2.35 and needing a CI override.
+    - gfortran=10
+    - sysroot_linux-64 ==2.17
+    - make
   host:
     - python
     - pip
     - setuptools
     - versioneer
+    # libHYBEXE.so #includes mdslib.inc and links -lMdsLib. This is the
+    # MDSplus the whole FDP stack uses (the XRootD/Pelican-patched fork).
+    - mdsplus-xrdcl >=1.0.1
+  # rattler-build 0.39 synthesises a python run-export of
+  # `python 3.12.* *_debug_cpython` from a host python whose build string is
+  # plainly `h5f976f7_2_cpython`. conda-forge declares no such export and the
+  # python_abi export beside it is correct, so the `debug_` prefix is invented
+  # by the tool -- and the resulting package is uninstallable, because no such
+  # python exists. It fails at the *test* step, after the .conda is written, so
+  # it reads like a test failure rather than a packaging one. Newer
+  # rattler-build (0.75) does not do this, but CI installs it unpinned, so the
+  # guard stays. Same fix as toksearch#63 / ptdata#50.
+  #
+  # Ignore the synthesised export and state the constraint from the variant.
+  # python_abi still pins the ABI, so packages stay version-specific.
+  ignore_run_exports:
+    by_name:
+      - python
   run:
-    - python >=3.11
+    - python ${{ python }}
     # LOAD-BEARING FLOOR. cmod.yaml deliberately omits `origin_server`
     # because the cmod origin exposes no XRootD port. That omission is only
     # safe on a version of fdp with capability-scoped resolution, where the
@@ -41,11 +70,14 @@ requirements:
     # omission is not handled and the guard test below fails.
     - fdp >=0.5.0
     - fdp-schema >=0.2.1
-    # NOT a dependency: toksearch. This package imports nothing from it --
-    # it ships a YAML and an entry point. Reading C-Mod data does need
-    # `toksearch.MdsSignal`, but `fdp` already depends on toksearch, so it
-    # arrives either way and pinning a second floor here would just be
-    # another thing to keep in sync.
+    # Not merely a build-time dependency: libHYBEXE.so carries a DT_NEEDED on
+    # libMdsLib.so, and MDSplus is what dlopen()s these libraries in the first
+    # place.
+    - mdsplus-xrdcl >=1.0.1
+    # NOT a dependency: toksearch. This package imports nothing from it.
+    # Reading C-Mod data does need `toksearch.MdsSignal`, but `fdp` already
+    # depends on toksearch, so it arrives either way and a second floor here
+    # would just be another thing to keep in sync.
 
 tests:
   - python:
@@ -54,7 +86,11 @@ tests:
         - toksearch_cmod.data
   - script:
       content:
-        - cd tests && pytest -q
+        # Network-free suite: catalog schema, env composition, and the native
+        # artifacts (entry points, install layout). The live-origin tests that
+        # reproduce MIT's reference values need a BEARER_TOKEN and are marked
+        # `integration`, so they are excluded here.
+        - python -m pytest tests/ -v -m "not integration"
     files:
       source:
         - tests/
@@ -66,9 +102,19 @@ tests:
 
 about:
   homepage: https://github.com/GA-FDP/toksearch_cmod
-  license: Apache-2.0
-  license_file: LICENSE
-  summary: "TokSearch C-Mod: Alcator C-Mod device catalog for FDP"
+  license: Apache-2.0 AND MIT
+  license_file:
+    - LICENSE
+    - src/LICENSE.mit
+  summary: "TokSearch C-Mod: Alcator C-Mod device catalog and custom TDI/FORTRAN support for FDP"
+  description: |
+    Alcator C-Mod (MIT PSFC) support for the Fusion Data Platform: a device
+    catalog contributed to fdp via the fdp_schema.catalogs entry point, plus
+    the custom TDI functions and FORTRAN libraries that MDSplus needs in
+    order to evaluate C-Mod tree expressions.
+
+    The native half (src/) is MIT PSFC's work, redistributed under the MIT
+    license; see src/LICENSE.mit and src/README.md.
   repository: https://github.com/GA-FDP/toksearch_cmod
 
 extra:

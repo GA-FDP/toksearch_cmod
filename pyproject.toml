@@ -20,6 +20,14 @@ zip-safe = false
 [tool.setuptools.package-data]
 "toksearch_cmod.data" = ["*.yaml"]
 
+[tool.pytest.ini_options]
+# Only our suite. Without this, pytest also collects the upstream delivery in
+# from_mark/, whose test_*.py open a C-Mod tree at import time.
+testpaths = ["tests"]
+markers = [
+    "integration: reads real C-Mod data over Pelican; needs BEARER_TOKEN and the fdp environment",
+]
+
 [tool.versioneer]
 VCS = "git"
 style = "pep440"
